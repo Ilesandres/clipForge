@@ -1,0 +1,16 @@
+{
+    "output_path": "C:\\Users\\Usuario\\Documents\\ClipForge\\clips",
+    "last_duration": 30,
+    "available_durations": [15, 20, 30, 45, 60, 90, 120],
+    "window_size": {
+        "width": 900,
+        "height": 600
+    },
+    "window_position": {
+        "x": 100,
+        "y": 100
+    },
+    "theme": "default",
+    "auto_create_folders": true,
+    "overwrite_existing": false
+} 
