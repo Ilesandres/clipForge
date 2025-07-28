@@ -24,16 +24,24 @@ class VideoSplitter:
     def get_video_info(self, video_path: str) -> Optional[Dict[str, Any]]:
         """Get detailed video information"""
         try:
-            with VideoFileClip(video_path) as clip:
-                return {
-                    'duration': clip.duration,
-                    'fps': clip.fps,
-                    'size': (clip.w, clip.h),
-                    'filename': Path(video_path).name,
-                    'file_size': FileUtils.get_file_size(video_path)
-                }
+            print(f"Getting video info for: {video_path}")
+            clip = VideoFileClip(video_path)
+            
+            info = {
+                'duration': clip.duration,
+                'fps': clip.fps,
+                'size': (clip.w, clip.h),
+                'filename': Path(video_path).name,
+                'file_size': FileUtils.get_file_size(video_path)
+            }
+            
+            # Close the clip to free resources
+            clip.close()
+            
+            return info
+            
         except Exception as e:
-            print(f"Error getting video info: {e}")
+            print(f"Error getting video info for {video_path}: {e}")
             return None
     
     def calculate_clips(self, video_duration: float, clip_duration: int) -> List[Dict[str, float]]:
@@ -58,18 +66,20 @@ class VideoSplitter:
         output_files = []
         
         try:
-            # Load video
-            with VideoFileClip(video_path) as video:
-                self.current_video_path = video_path
-                self.current_clip = video
-                
-                # Calculate clips
-                clips = self.calculate_clips(video.duration, clip_duration)
-                total_clips = len(clips)
-                
-                print(f"Splitting video into {total_clips} clips...")
-                
-                for i, clip_info in enumerate(clips):
+            # Load video with better error handling
+            print(f"Loading video: {video_path}")
+            video = VideoFileClip(video_path)
+            self.current_video_path = video_path
+            self.current_clip = video
+            
+            # Calculate clips
+            clips = self.calculate_clips(video.duration, clip_duration)
+            total_clips = len(clips)
+            
+            print(f"Splitting video into {total_clips} clips...")
+            
+            for i, clip_info in enumerate(clips):
+                try:
                     # Generate output filename
                     output_filename = FileUtils.generate_clip_filename(
                         base_filename, i + 1, clip_duration
@@ -85,7 +95,7 @@ class VideoSplitter:
                     # Extract subclip
                     subclip = video.subclip(start_time, end_time)
                     
-                    # Write clip
+                    # Write clip with more robust settings
                     subclip.write_videofile(
                         str(output_path),
                         codec='libx264',
@@ -93,20 +103,29 @@ class VideoSplitter:
                         temp_audiofile='temp-audio.m4a',
                         remove_temp=True,
                         verbose=False,
-                        logger=None
+                        logger=None,
+                        ffmpeg_params=['-preset', 'fast', '-crf', '23']
                     )
                     
                     output_files.append(str(output_path))
                     
-                    # Update progress
-                    progress = (i + 1) / total_clips * 100
-                    self.progress_callback(progress)
+                    # Update progress - ensure it's a valid integer
+                    progress = int((i + 1) / total_clips * 100)
+                    progress = max(0, min(100, progress))  # Clamp between 0 and 100
+                    print(f"Progress: {progress}% ({i + 1}/{total_clips})")
+                    if self.progress_callback:
+                        self.progress_callback(progress)
                     
                     # Clean up subclip
                     subclip.close()
-                
-                print(f"Successfully created {len(output_files)} clips")
-                
+                    
+                except Exception as clip_error:
+                    print(f"Error processing clip {i + 1}: {clip_error}")
+                    # Continue with next clip instead of failing completely
+                    continue
+            
+            print(f"Successfully created {len(output_files)} clips")
+            
         except Exception as e:
             print(f"Error splitting video: {e}")
             raise
@@ -114,6 +133,10 @@ class VideoSplitter:
         finally:
             # Clean up
             if self.current_clip:
+                try:
+                    self.current_clip.close()
+                except:
+                    pass
                 self.current_clip = None
             self.current_video_path = None
         

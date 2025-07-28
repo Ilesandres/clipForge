@@ -36,18 +36,35 @@ class ProcessingThread(QThread):
         self.video_path = video_path
         self.output_path = output_path
         self.clip_duration = clip_duration
-        self.splitter = VideoSplitter(self.progress_updated.emit)
+        self.splitter = VideoSplitter(self._progress_callback)
+    
+    def _progress_callback(self, value):
+        """Callback for progress updates"""
+        try:
+            # Ensure we emit a valid integer value
+            if isinstance(value, (int, float)):
+                progress_value = int(value)
+                progress_value = max(0, min(100, progress_value))
+                print(f"Thread progress callback: {progress_value}%")
+                self.progress_updated.emit(progress_value)
+            else:
+                print(f"Invalid progress value in callback: {value}")
+        except Exception as e:
+            print(f"Error in progress callback: {e}")
     
     def run(self):
         """Run video processing"""
         try:
+            print("Starting video processing thread...")
             result = self.splitter.process_video(
                 self.video_path, 
                 self.output_path, 
                 self.clip_duration
             )
+            print("Video processing completed, emitting result...")
             self.processing_finished.emit(result)
         except Exception as e:
+            print(f"Error in processing thread: {e}")
             self.error_occurred.emit(str(e))
 
 
@@ -347,6 +364,10 @@ class MainWindow(QMainWindow):
         # Show progress bar
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
+        self.status_bar.showMessage("Starting processing...")
+        
+        # Force initial GUI update
+        QApplication.processEvents()
         
         # Start processing thread
         self.processing_thread = ProcessingThread(
@@ -363,8 +384,29 @@ class MainWindow(QMainWindow):
     
     def update_progress(self, value: int):
         """Update progress bar"""
-        self.progress_bar.setValue(value)
-        self.status_bar.showMessage(f"Processing... {value}%")
+        try:
+            # Ensure value is valid
+            if isinstance(value, (int, float)):
+                progress_value = int(value)
+                progress_value = max(0, min(100, progress_value))  # Clamp between 0 and 100
+                
+                # Update progress bar
+                self.progress_bar.setValue(progress_value)
+                
+                # Update status bar
+                self.status_bar.showMessage(f"Processing... {progress_value}%")
+                
+                # Force GUI update
+                QApplication.processEvents()
+                
+                print(f"GUI Progress updated: {progress_value}%")
+            else:
+                print(f"Invalid progress value: {value} (type: {type(value)})")
+        except Exception as e:
+            print(f"Error updating progress: {e}")
+            # Set a safe default
+            self.progress_bar.setValue(0)
+            self.status_bar.showMessage("Processing...")
     
     def processing_finished(self, result: dict):
         """Handle processing completion"""
@@ -389,9 +431,25 @@ class MainWindow(QMainWindow):
         self.select_files_btn.setEnabled(True)
         self.clear_files_btn.setEnabled(True)
         
+        # Log the error
         self.log_message(f"Error: {error}")
-        QMessageBox.critical(self, "Error", f"Processing error: {error}")
-        self.status_bar.showMessage("Ready")
+        
+        # Provide more helpful error messages
+        if "'NoneType' object has no attribute 'stdout'" in error:
+            error_msg = "Error de procesamiento de video. Esto puede deberse a:\n\n" \
+                       "1. El archivo de video está corrupto o no es compatible\n" \
+                       "2. Problema con FFmpeg (intente reiniciar la aplicación)\n" \
+                       "3. El video es muy largo o complejo\n\n" \
+                       "Error técnico: " + error
+        elif "could not be found" in error:
+            error_msg = "No se pudo encontrar el archivo de video.\n\n" \
+                       "Asegúrese de que el archivo existe y no está siendo usado por otra aplicación."
+        else:
+            error_msg = f"Error de procesamiento: {error}\n\n" \
+                       "Intente con un video diferente o reinicie la aplicación."
+        
+        QMessageBox.critical(self, "Error de Procesamiento", error_msg)
+        self.status_bar.showMessage("Error - Listo")
     
     def show_processing_results(self, result: dict):
         """Show processing results"""
