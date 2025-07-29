@@ -1,0 +1,5 @@
+PyQt5==5.15.11
+moviepy==1.0.3
+Pillow==11.3.0
+pathlib2==2.3.7.post1
+pyinstaller==6.14.2
