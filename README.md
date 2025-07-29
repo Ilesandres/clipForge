@@ -41,7 +41,8 @@ python main.py
 ```
 
 ### 4. Aplicacion de escritorio 
-[aquí 👌](https://github.com/Ilesandres/clipForge/dist/ClipForge.exe)
+[![Descargar ClipForge](https://img.shields.io/badge/⬇️_Descargar-ClipForge.exe-blue?style=for-the-badge&logo=windows)](https://github.com/Ilesandres/clipForge/releases/latest/download/ClipForge.exe)
+
 
 ## 📁 Estructura del Proyecto
 
