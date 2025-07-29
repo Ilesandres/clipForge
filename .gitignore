@@ -1,6 +1,6 @@
 config/_pycache_/
 build/
-config/_pycache_/
+config/__pycache__/
 gui/_pycache_/
 processor/_pycache_/
 utils/_pycache_/
