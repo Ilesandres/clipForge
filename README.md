@@ -40,6 +40,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### 4. Aplicacion de escritorio 
+[aquí 👌](https://github.com/Ilesandres/clipForge/dist/ClipForge.exe)
+
 ## 📁 Estructura del Proyecto
 
 ```
