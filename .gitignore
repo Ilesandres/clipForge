@@ -1,2 +1,7 @@
 config/_pycache_/
-**/__pycache__/
+build/
+config/__pycache__/
+gui/_pycache_/
+processor/_pycache_/
+utils/_pycache_/
+__pycache__/
