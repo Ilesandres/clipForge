@@ -86,6 +86,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ClipForge - Video Clipping Tool")
         self.setMinimumSize(900, 600)
         
+        # Set window icon
+        icon_path = Path(__file__).parent.parent / "assets" / "clipforge.ico"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        
         # Set window icon and style
         self.setStyleSheet(self.get_application_style())
         
