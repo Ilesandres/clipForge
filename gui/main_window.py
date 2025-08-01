@@ -87,10 +87,30 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ClipForge - Video Clipping Tool")
         self.setMinimumSize(900, 600)
         
-        # Set window icon
-        icon_path = Path(__file__).parent.parent / "assets" / "clipforge.ico"
+        # Set window icon with improved configuration
+        icon_path = Path(__file__).parent.parent / "assets" / "clipforge_multi.ico"
+        if not icon_path.exists():
+            # Fallback to other icons
+            icon_path = Path(__file__).parent.parent / "assets" / "clipforge-16x16.ico"
+            if not icon_path.exists():
+                icon_path = Path(__file__).parent.parent / "assets" / "clipforge.ico"
+        
         if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
+            try:
+                # Create QIcon object
+                icon = QIcon(str(icon_path))
+                
+                # Check if icon is valid
+                if not icon.isNull():
+                    # Set window icon
+                    self.setWindowIcon(icon)
+                    print(f"✅ Main window icon set successfully from: {icon_path}")
+                else:
+                    print(f"⚠️ Warning: Icon file exists but is invalid: {icon_path}")
+            except Exception as e:
+                print(f"⚠️ Warning: Error setting main window icon: {e}")
+        else:
+            print(f"⚠️ Warning: Icon file not found at {icon_path}")
         
         # Set window icon and style
         self.setStyleSheet(self.get_application_style())
