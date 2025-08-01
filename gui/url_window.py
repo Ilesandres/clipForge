@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont, QPixmap, QIcon
 
-from processor.url_clip_processor import URLClipProcessor
+from processor.url_clip_processor_v8 import URLClipProcessorV8
 from utils.file_utils import FileUtils
 
 
@@ -35,7 +35,7 @@ class URLProcessingThread(QThread):
         self.output_path = output_path
         self.clip_duration = clip_duration
         self.mode = mode  # 'preview' or 'process'
-        self.processor = URLClipProcessor(self.progress_updated.emit)
+        self.processor = URLClipProcessorV8(self.progress_updated.emit)
     
     def run(self):
         """Run URL processing"""
@@ -298,7 +298,7 @@ class URLWindow(QWidget):
             duration = self.current_preview['duration']
             clip_duration = int(self.duration_combo.currentText().replace('s', ''))
             
-            processor = URLClipProcessor()
+            processor = URLClipProcessorV8()
             estimated_time = processor.estimate_processing_time(duration, clip_duration)
             self.estimated_time_label.setText(f"Tiempo estimado: {estimated_time}")
     
