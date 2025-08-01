@@ -7,6 +7,8 @@ Processes video clips from URLs using streaming
 
 import os
 import tempfile
+import time
+import gc
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 from .url_processor import URLProcessor
@@ -72,13 +74,18 @@ class URLClipProcessor:
                     
                     print(f"Processing clip {i + 1}/{total_clips}: {clip_info['start']:.1f}s - {clip_info['end']:.1f}s")
                     
+                    # Check if clip end time exceeds video duration
+                    if clip_info['end'] > video_info['duration']:
+                        print(f"⚠️ Clip {i + 1} end time ({clip_info['end']:.1f}s) exceeds video duration ({video_info['duration']:.1f}s), skipping")
+                        continue
+                    
                     # Generate output filename
                     output_filename = FileUtils.generate_clip_filename(
                         video_info['title'], i + 1, clip_duration
                     )
                     output_path = output_folder / output_filename
                     
-                    # Download segment
+                    # Download segment with timeout
                     segment_path = self._download_segment(
                         url, clip_info['start'], clip_info['duration'], temp_path, i
                     )
@@ -95,8 +102,17 @@ class URLClipProcessor:
                     else:
                         print(f"❌ Clip {i + 1} failed: download error")
                     
+                    # Force garbage collection to free memory
+                    import gc
+                    gc.collect()
+                    
+                    # Small delay to prevent overwhelming the system
+                    time.sleep(0.5)
+                    
                 except Exception as e:
                     print(f"❌ Error processing clip {i + 1}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
             
             # Clean up temporary directory

@@ -41,7 +41,9 @@ class URLProcessor:
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
-            'format': 'best[height<=720]',  # Limit to 720p for faster processing
+            'format': 'best',  # Use best available format
+            'socket_timeout': 30,  # 30 second timeout
+            'retries': 3,  # Retry failed downloads
         }
     
     def is_supported_url(self, url: str) -> Dict[str, Any]:
@@ -78,7 +80,15 @@ class URLProcessor:
     def get_video_info(self, url: str) -> Optional[Dict[str, Any]]:
         """Get video information from URL"""
         try:
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            # Use different options for info extraction
+            info_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'format': 'best',  # Use best available format
+            }
+            
+            with yt_dlp.YoutubeDL(info_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 
                 if not info:
@@ -127,49 +137,81 @@ class URLProcessor:
             # Use a simpler approach - download the full video and then extract segment
             temp_download_path = output_path.parent / f"temp_full_{output_path.stem}.mp4"
             
-            download_opts = {
-                **self.ydl_opts,
-                'format': format_id,
-                'outtmpl': str(temp_download_path),
-            }
+            # Use different options for Twitch videos
+            if 'twitch.tv' in url:
+                download_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'format': 'best',  # Use best available format for Twitch
+                    'outtmpl': str(temp_download_path),
+                    'socket_timeout': 30,
+                    'retries': 3,
+                }
+            else:
+                download_opts = {
+                    **self.ydl_opts,
+                    'format': format_id,
+                    'outtmpl': str(temp_download_path),
+                }
             
-            with yt_dlp.YoutubeDL(download_opts) as ydl:
-                ydl.download([url])
+            # Check if we already downloaded this video
+            if temp_download_path.exists():
+                print(f"Using existing downloaded video: {temp_download_path}")
+            else:
+                print(f"Downloading full video for segment extraction...")
+                with yt_dlp.YoutubeDL(download_opts) as ydl:
+                    ydl.download([url])
+            
+            # Check if full video was downloaded
+            if temp_download_path.exists():
+                print(f"Full video available, extracting segment {start_time}s - {start_time + duration}s")
+                # Now extract the segment using moviepy
+                from moviepy.editor import VideoFileClip
                 
-                # Check if full video was downloaded
-                if temp_download_path.exists():
-                    # Now extract the segment using moviepy
-                    from moviepy.editor import VideoFileClip
+                try:
+                    clip = VideoFileClip(str(temp_download_path))
                     
-                    try:
-                        clip = VideoFileClip(str(temp_download_path))
-                        segment = clip.subclip(start_time, start_time + duration)
-                        segment.write_videofile(
-                            str(output_path),
-                            codec='libx264',
-                            audio_codec='aac',
-                            ffmpeg_params=['-preset', 'fast', '-crf', '23']
-                        )
-                        segment.close()
+                    # Check if start_time is within video duration
+                    if start_time >= clip.duration:
+                        print(f"Start time {start_time}s is beyond video duration {clip.duration}s")
                         clip.close()
-                        
-                        # Clean up temp file
-                        temp_download_path.unlink()
-                        
-                        return str(output_path)
-                        
-                    except Exception as e:
-                        print(f"Error extracting segment with moviepy: {e}")
-                        # Clean up temp file
-                        if temp_download_path.exists():
-                            temp_download_path.unlink()
                         return None
-                else:
-                    print(f"Failed to download full video to {temp_download_path}")
+                    
+                    # Adjust end time if it exceeds video duration
+                    end_time = min(start_time + duration, clip.duration)
+                    actual_duration = end_time - start_time
+                    
+                    print(f"Extracting segment: {start_time}s - {end_time}s (actual duration: {actual_duration}s)")
+                    
+                    segment = clip.subclip(start_time, end_time)
+                    segment.write_videofile(
+                        str(output_path),
+                        codec='libx264',
+                        audio_codec='aac',
+                        ffmpeg_params=['-preset', 'fast', '-crf', '23'],
+                        verbose=False,
+                        logger=None
+                    )
+                    segment.close()
+                    clip.close()
+                    
+                    print(f"Segment extracted successfully: {output_path}")
+                    
+                    return str(output_path)
+                    
+                except Exception as e:
+                    print(f"Error extracting segment with moviepy: {e}")
+                    import traceback
+                    traceback.print_exc()
                     return None
+            else:
+                print(f"Failed to download full video to {temp_download_path}")
+                return None
             
         except Exception as e:
             print(f"Error downloading segment: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_stream_url(self, url: str, format_id: str = 'best') -> Optional[str]:
