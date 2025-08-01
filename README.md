@@ -35,8 +35,20 @@ ClipForge es una aplicación de escritorio para Windows que permite procesar vid
 3. **Ejecuta**: `pip install -r requirements.txt` 
 4. **Ejecuta**: `python main.py`
 
-### Opcioó 3. Aplicacion de escritorio 
+### Opción 3: Aplicación de escritorio 
 [![Descargar ClipForge](https://img.shields.io/badge/⬇️_Descargar-ClipForge.exe-blue?style=for-the-badge&logo=windows)](https://github.com/Ilesandres/clipForge/releases/latest/download/ClipForge.exe)
+
+### ✅ Verificación de Instalación
+Después de instalar las dependencias, ejecuta:
+```bash
+python test_dependencies.py
+```
+
+Deberías ver:
+```
+🎉 All dependencies and modules are working correctly!
+✅ ClipForge is ready to use!
+```
 
 
 ### Dependencias Principales
@@ -284,6 +296,25 @@ Los logs muestran:
 - **Reutilización de código**: ~70% del código existente
 - **Pruebas**: 100% de los tests pasan
 - **Documentación**: 100% completa
+
+## 💝 Donaciones y Apoyo
+
+Si ClipForge te ha sido útil y quieres apoyar el desarrollo, considera hacer una donación:
+
+[![Donar con StreamElements](https://img.shields.io/badge/💝_Donar-StreamElements-orange?style=for-the-badge&logo=paypal)](https://streamelements.com/ilesandres6/tip)
+
+**Otras formas de apoyo:**
+- ⭐ **Dale una estrella** al proyecto en GitHub
+- 🐛 **Reporta bugs** o sugiere mejoras
+- 📢 **Comparte** el proyecto con otros desarrolladores
+
+## 📱 Redes Sociales
+
+**Sígueme en:**
+- 🐙 **GitHub**: https://github.com/Ilesandres
+- 📺 **YouTube**: https://youtube.com/@Ilesandres6
+- 📱 **TikTok**: https://tiktok.com/@Ilesandres7
+- 📸 **Instagram**: https://instagram.com/Ilesandres8
 
 ## 📞 Soporte
 
