@@ -9,7 +9,7 @@
 ## 🚀 Comando Completo con Icono
 
 ```bash
-pyinstaller --onefile --windowed --name ClipForge --icon=assets/clipforge.ico --clean --noconfirm --add-data "config;config" --add-data "gui;gui" --add-data "processor;processor" --add-data "utils;utils" main.py
+pyinstaller --onefile --windowed --name ClipForge --icon=assets/clipforge.ico --clean --noconfirm --add-data "config;config" --add-data "gui;gui" --add-data "processor;processor" --add-data "utils;utils" --add-data "assets;assets" main.py
 ```
 
 ## 📋 Opciones para Build con Icono
