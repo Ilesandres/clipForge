@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QComboBox, QLineEdit, QProgressBar,
     QTextEdit, QFileDialog, QMessageBox, QGroupBox, QSpinBox,
     QFrame, QSplitter, QListWidget, QListWidgetItem, QCheckBox,
-    QApplication, QStyle, QSizePolicy
+    QApplication, QStyle, QSizePolicy, QTabWidget
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
 from PyQt5.QtGui import QFont, QIcon, QPixmap, QPalette, QColor
@@ -22,6 +22,7 @@ from PyQt5.QtGui import QFont, QIcon, QPixmap, QPalette, QColor
 from config.config_manager import ConfigManager
 from processor.video_splitter import VideoSplitter
 from utils.file_utils import FileUtils
+from .url_window import URLWindow
 
 
 class ProcessingThread(QThread):
@@ -86,10 +87,30 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ClipForge - Video Clipping Tool")
         self.setMinimumSize(900, 600)
         
-        # Set window icon
-        icon_path = Path(__file__).parent.parent / "assets" / "clipforge.ico"
+        # Set window icon with improved configuration
+        icon_path = Path(__file__).parent.parent / "assets" / "clipforge_multi.ico"
+        if not icon_path.exists():
+            # Fallback to other icons
+            icon_path = Path(__file__).parent.parent / "assets" / "clipforge-16x16.ico"
+            if not icon_path.exists():
+                icon_path = Path(__file__).parent.parent / "assets" / "clipforge.ico"
+        
         if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
+            try:
+                # Create QIcon object
+                icon = QIcon(str(icon_path))
+                
+                # Check if icon is valid
+                if not icon.isNull():
+                    # Set window icon
+                    self.setWindowIcon(icon)
+                    print(f"✅ Main window icon set successfully from: {icon_path}")
+                else:
+                    print(f"⚠️ Warning: Icon file exists but is invalid: {icon_path}")
+            except Exception as e:
+                print(f"⚠️ Warning: Error setting main window icon: {e}")
+        else:
+            print(f"⚠️ Warning: Icon file not found at {icon_path}")
         
         # Set window icon and style
         self.setStyleSheet(self.get_application_style())
@@ -99,11 +120,33 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         
         # Create main layout
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+        
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # Local files tab
+        local_tab = self.create_local_tab()
+        self.tab_widget.addTab(local_tab, "📁 Archivos Locales")
+        
+        # URL tab
+        self.url_window = URLWindow(self.config_manager)
+        self.tab_widget.addTab(self.url_window, "🌐 Desde URL")
+        
+        main_layout.addWidget(self.tab_widget)
+        
+        # Create status bar
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage("Listo para procesar videos")
+    
+    def create_local_tab(self) -> QWidget:
+        """Create the local files processing tab"""
+        tab_widget = QWidget()
+        layout = QHBoxLayout(tab_widget)
         
         # Create splitter for resizable panels
         splitter = QSplitter(Qt.Horizontal)
-        main_layout.addWidget(splitter)
+        layout.addWidget(splitter)
         
         # Left panel - Controls
         left_panel = self.create_left_panel()
@@ -116,9 +159,7 @@ class MainWindow(QMainWindow):
         # Set splitter proportions
         splitter.setSizes([400, 500])
         
-        # Create status bar
-        self.status_bar = self.statusBar()
-        self.status_bar.showMessage("Ready")
+        return tab_widget
     
     def create_left_panel(self) -> QWidget:
         """Create left control panel"""
