@@ -196,7 +196,7 @@ La aplicación sigue el patrón MVC (Model-View-Controller):
 ### Plataformas Soportadas
 - ✅ **YouTube**: `https://www.youtube.com/watch?v=...`
 - ✅ **Twitch**: `https://www.twitch.tv/videos/...`
-- ✅ **Kick**: `https://kick.com/video/...`
+- ❌ **Kick**: `https://kick.com/video/...` (No soportado - medidas anti-bot muy estrictas, ````trabajndo en el````)
 
 ### Características Avanzadas
 - **Validación en tiempo real**: Verifica URLs antes del procesamiento
@@ -245,6 +245,16 @@ Set-ExecutionPolicy RemoteSigned
 ### Error: "URL not supported"
 - Verifica que la URL sea de YouTube, Twitch o Kick
 - Asegúrate de que el video esté disponible públicamente
+
+### Error: "HTTP Error 403: Forbidden" (Kick)
+- **Causa**: Kick tiene medidas anti-bot extremadamente estrictas
+- **Solución**: 
+  - **Kick no es soportado** debido a sus medidas anti-bot agresivas
+  - Usa **YouTube** o **Twitch** como alternativas
+  - Si necesitas procesar contenido de Kick, considera:
+    - Descargar el video manualmente y usar la funcionalidad local
+    - Usar otras herramientas específicas para Kick
+    - Contactar al desarrollador para solicitar soporte específico
 
 ### Videos no se procesan
 - Verifica que el formato sea compatible

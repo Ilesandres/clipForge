@@ -152,10 +152,20 @@ class URLClipProcessorV8:
             import yt_dlp
             
             print("Getting video stream information...")
+            
+            # Detect platform and use specific options
+            platform_info = self.url_processor.is_supported_url(url)
+            platform = platform_info.get('platform', 'unknown')
+            
             info_opts = {
                 'quiet': True,
                 'no_warnings': True,
             }
+            
+            # Add platform-specific options if available
+            if hasattr(self.url_processor, 'platform_opts') and platform in self.url_processor.platform_opts:
+                info_opts.update(self.url_processor.platform_opts[platform])
+                print(f"Using {platform}-specific options for stream extraction...")
             
             with yt_dlp.YoutubeDL(info_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
