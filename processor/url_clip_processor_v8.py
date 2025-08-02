@@ -23,6 +23,7 @@ class URLClipProcessorV8:
         self.url_processor = URLProcessor()
         self.progress_callback = progress_callback or (lambda x: None)
         self.temp_dir = None
+        self._stop_flag = False
     
     def process_url_video(self, url: str, output_base_path: Path, 
                          clip_duration: int) -> Dict[str, Any]:
@@ -77,6 +78,11 @@ class URLClipProcessorV8:
             # Extract segments using real streaming
             print("Step 2: Extracting segments using real streaming...")
             for i, clip_info in enumerate(clips):
+                # Check if processing was stopped
+                if self._stop_flag:
+                    print("🛑 Processing stopped by user")
+                    break
+                    
                 try:
                     # Update progress
                     progress = int((i / total_clips) * 100)
@@ -147,15 +153,25 @@ class URLClipProcessorV8:
             }
     
     def _get_stream_url(self, url: str) -> Optional[str]:
-        """Get direct stream URL using yt-dlp"""
+        """Get direct stream URL using yt-dlp with audio included"""
         try:
             import yt_dlp
             
             print("Getting video stream information...")
+            
+            # Detect platform and use specific options
+            platform_info = self.url_processor.is_supported_url(url)
+            platform = platform_info.get('platform', 'unknown')
+            
             info_opts = {
                 'quiet': True,
                 'no_warnings': True,
             }
+            
+            # Add platform-specific options if available
+            if hasattr(self.url_processor, 'platform_opts') and platform in self.url_processor.platform_opts:
+                info_opts.update(self.url_processor.platform_opts[platform])
+                print(f"Using {platform}-specific options for stream extraction...")
             
             with yt_dlp.YoutubeDL(info_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -166,20 +182,25 @@ class URLClipProcessorV8:
                     print("❌ No video formats found")
                     return None
                 
-                # Find the best format with direct URL (not fragmented)
+                # Find the best format with audio included (prefer formats with audio)
                 best_format = None
                 for fmt in formats:
                     if fmt.get('url') and not fmt.get('fragments'):
-                        # Prefer formats with higher resolution/bitrate
-                        if not best_format or (fmt.get('height', 0) or 0) > (best_format.get('height', 0) or 0):
-                            best_format = fmt
+                        # Check if format has audio (acodec not None and not 'none')
+                        has_audio = fmt.get('acodec') and fmt.get('acodec') != 'none'
+                        
+                        # Prefer formats with audio and higher resolution
+                        if has_audio:
+                            if not best_format or (fmt.get('height', 0) or 0) > (best_format.get('height', 0) or 0):
+                                best_format = fmt
                 
+                # If no format with audio found, fallback to any format
                 if not best_format:
-                    # Fallback to any format with URL
+                    print("⚠️ No format with audio found, trying any format...")
                     for fmt in formats:
-                        if fmt.get('url'):
-                            best_format = fmt
-                            break
+                        if fmt.get('url') and not fmt.get('fragments'):
+                            if not best_format or (fmt.get('height', 0) or 0) > (best_format.get('height', 0) or 0):
+                                best_format = fmt
                 
                 if not best_format:
                     print("❌ No suitable video format found")
@@ -188,8 +209,10 @@ class URLClipProcessorV8:
                 stream_url = best_format.get('url')
                 format_info = best_format.get('format_note', 'Unknown')
                 file_size = best_format.get('filesize', 0)
+                has_audio = best_format.get('acodec') and best_format.get('acodec') != 'none'
                 
                 print(f"✅ Selected format: {format_info}")
+                print(f"✅ Has audio: {has_audio}")
                 print(f"✅ Video size: {file_size} bytes")
                 print(f"✅ Stream URL: {stream_url[:50]}...")
                 
@@ -401,4 +424,5 @@ class URLClipProcessorV8:
     def cancel_processing(self):
         """Cancel current processing"""
         print("🛑 Processing cancelled by user")
+        self._stop_flag = True
         self._cleanup_temp_dir() 
