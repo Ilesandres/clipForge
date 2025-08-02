@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QComboBox, QLineEdit, QProgressBar,
     QTextEdit, QFileDialog, QMessageBox, QGroupBox, QSpinBox,
     QFrame, QSplitter, QListWidget, QListWidgetItem, QCheckBox,
-    QApplication, QStyle, QSizePolicy
+    QApplication, QStyle, QSizePolicy, QTabWidget
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
 from PyQt5.QtGui import QFont, QIcon, QPixmap, QPalette, QColor
@@ -22,6 +22,8 @@ from PyQt5.QtGui import QFont, QIcon, QPixmap, QPalette, QColor
 from config.config_manager import ConfigManager
 from processor.video_splitter import VideoSplitter
 from utils.file_utils import FileUtils
+from utils.logger import get_global_logger, set_global_gui_callback
+from .url_window import URLWindow
 
 
 class ProcessingThread(QThread):
@@ -37,6 +39,7 @@ class ProcessingThread(QThread):
         self.output_path = output_path
         self.clip_duration = clip_duration
         self.splitter = VideoSplitter(self._progress_callback)
+        self._stop_flag = False
     
     def _progress_callback(self, value):
         """Callback for progress updates"""
@@ -61,11 +64,24 @@ class ProcessingThread(QThread):
                 self.output_path, 
                 self.clip_duration
             )
+            
+            # Check if processing was stopped
+            if self._stop_flag:
+                print("Processing was stopped by user")
+                return
+            
             print("Video processing completed, emitting result...")
             self.processing_finished.emit(result)
         except Exception as e:
             print(f"Error in processing thread: {e}")
-            self.error_occurred.emit(str(e))
+            if not self._stop_flag:
+                self.error_occurred.emit(str(e))
+    
+    def stop(self):
+        """Stop processing"""
+        self._stop_flag = True
+        if self.splitter:
+            self.splitter.cancel_processing()
 
 
 class MainWindow(QMainWindow):
@@ -80,11 +96,56 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.load_config()
         self.setup_connections()
+        
+        # Initialize logger for console output capture
+        self.setup_logger()
+    
+    def setup_logger(self):
+        """Setup logger to capture console output"""
+        try:
+            # Set GUI callback for log messages
+            set_global_gui_callback(self.log_message)
+            
+            # Get logger and connect signal
+            logger = get_global_logger()
+            logger.log_message_signal.connect(self.log_message)
+            
+            # Start capturing console output
+            logger.start_capture()
+            
+            self.log_message("✅ Logger inicializado - Capturando logs de consola")
+        except Exception as e:
+            print(f"Error setting up logger: {e}")
     
     def init_ui(self):
         """Initialize user interface"""
         self.setWindowTitle("ClipForge - Video Clipping Tool")
         self.setMinimumSize(900, 600)
+        
+        # Set window icon with improved configuration
+        icon_path = Path(__file__).parent.parent / "assets" / "clipforge_multi.ico"
+        if not icon_path.exists():
+            # Fallback to other icons
+            icon_path = Path(__file__).parent.parent / "assets" / "clipforge-16x16.ico"
+            if not icon_path.exists():
+                icon_path = Path(__file__).parent.parent / "assets" / "clipforge.ico"
+        
+        if icon_path.exists():
+            try:
+                # Create QIcon object
+                icon = QIcon(str(icon_path))
+                
+                # Check if icon is valid
+                if not icon.isNull():
+                    # Set window icon
+                    self.setWindowIcon(icon)
+                    print(f"✅ Main window icon set successfully from: {icon_path}")
+                else:
+                    print(f"⚠️ Warning: Icon file exists but is invalid: {icon_path}")
+            except Exception as e:
+                print(f"⚠️ Warning: Error setting main window icon: {e}")
+        else:
+            print(f"⚠️ Warning: Icon file not found at {icon_path}")
         
         # Set window icon and style
         self.setStyleSheet(self.get_application_style())
@@ -94,11 +155,33 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         
         # Create main layout
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+        
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # Local files tab
+        local_tab = self.create_local_tab()
+        self.tab_widget.addTab(local_tab, "📁 Archivos Locales")
+        
+        # URL tab
+        self.url_window = URLWindow(self.config_manager)
+        self.tab_widget.addTab(self.url_window, "🌐 Desde URL")
+        
+        main_layout.addWidget(self.tab_widget)
+        
+        # Create status bar
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage("Listo para procesar videos")
+    
+    def create_local_tab(self) -> QWidget:
+        """Create the local files processing tab"""
+        tab_widget = QWidget()
+        layout = QHBoxLayout(tab_widget)
         
         # Create splitter for resizable panels
         splitter = QSplitter(Qt.Horizontal)
-        main_layout.addWidget(splitter)
+        layout.addWidget(splitter)
         
         # Left panel - Controls
         left_panel = self.create_left_panel()
@@ -111,9 +194,7 @@ class MainWindow(QMainWindow):
         # Set splitter proportions
         splitter.setSizes([400, 500])
         
-        # Create status bar
-        self.status_bar = self.statusBar()
-        self.status_bar.showMessage("Ready")
+        return tab_widget
     
     def create_left_panel(self) -> QWidget:
         """Create left control panel"""
@@ -182,6 +263,13 @@ class MainWindow(QMainWindow):
         self.process_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
         self.process_btn.setEnabled(False)
         processing_layout.addWidget(self.process_btn)
+        
+        # Stop button
+        self.stop_btn = QPushButton("Stop Processing")
+        self.stop_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaStop))
+        self.stop_btn.setEnabled(False)
+        self.stop_btn.clicked.connect(self.stop_processing)
+        processing_layout.addWidget(self.stop_btn)
         
         layout.addWidget(processing_group)
         
@@ -358,6 +446,7 @@ class MainWindow(QMainWindow):
         
         # Disable controls
         self.process_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
         self.select_files_btn.setEnabled(False)
         self.clear_files_btn.setEnabled(False)
         
@@ -381,6 +470,22 @@ class MainWindow(QMainWindow):
         self.processing_thread.start()
         
         self.log_message(f"Started processing: {Path(self.video_files[0]).name}")
+    
+    def stop_processing(self):
+        """Stop video processing"""
+        if self.processing_thread and self.processing_thread.isRunning():
+            self.log_message("🛑 Stopping processing...")
+            self.processing_thread.stop()
+            self.processing_thread.wait()  # Wait for thread to finish
+            
+            # Reset UI
+            self.progress_bar.setVisible(False)
+            self.process_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.select_files_btn.setEnabled(True)
+            self.clear_files_btn.setEnabled(True)
+            self.status_bar.showMessage("Processing stopped")
+            self.log_message("✅ Processing stopped by user")
     
     def update_progress(self, value: int):
         """Update progress bar"""
@@ -412,6 +517,7 @@ class MainWindow(QMainWindow):
         """Handle processing completion"""
         self.progress_bar.setVisible(False)
         self.process_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.select_files_btn.setEnabled(True)
         self.clear_files_btn.setEnabled(True)
         
@@ -428,6 +534,7 @@ class MainWindow(QMainWindow):
         """Handle processing error"""
         self.progress_bar.setVisible(False)
         self.process_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.select_files_btn.setEnabled(True)
         self.clear_files_btn.setEnabled(True)
         
@@ -466,9 +573,28 @@ class MainWindow(QMainWindow):
     
     def log_message(self, message: str):
         """Add message to log"""
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.append(f"[{timestamp}] {message}")
+        try:
+            # Check if log_text exists (in case it's called before UI is ready)
+            if hasattr(self, 'log_text') and self.log_text is not None:
+                # Add timestamp if not already present
+                if not message.startswith('['):
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    message = f"[{timestamp}] {message}"
+                
+                self.log_text.append(message)
+                
+                # Auto-scroll to bottom
+                cursor = self.log_text.textCursor()
+                cursor.movePosition(cursor.End)
+                self.log_text.setTextCursor(cursor)
+                
+                # Force GUI update
+                QApplication.processEvents()
+        except Exception as e:
+            # Fallback to print if GUI logging fails
+            print(f"Error in log_message: {e}")
+            print(f"Original message: {message}")
     
     def get_application_style(self) -> str:
         """Get application stylesheet"""
