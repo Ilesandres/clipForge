@@ -22,6 +22,7 @@ from PyQt5.QtGui import QFont, QIcon, QPixmap, QPalette, QColor
 from config.config_manager import ConfigManager
 from processor.video_splitter import VideoSplitter
 from utils.file_utils import FileUtils
+from utils.logger import get_global_logger, set_global_gui_callback
 from .url_window import URLWindow
 
 
@@ -38,6 +39,7 @@ class ProcessingThread(QThread):
         self.output_path = output_path
         self.clip_duration = clip_duration
         self.splitter = VideoSplitter(self._progress_callback)
+        self._stop_flag = False
     
     def _progress_callback(self, value):
         """Callback for progress updates"""
@@ -62,11 +64,24 @@ class ProcessingThread(QThread):
                 self.output_path, 
                 self.clip_duration
             )
+            
+            # Check if processing was stopped
+            if self._stop_flag:
+                print("Processing was stopped by user")
+                return
+            
             print("Video processing completed, emitting result...")
             self.processing_finished.emit(result)
         except Exception as e:
             print(f"Error in processing thread: {e}")
-            self.error_occurred.emit(str(e))
+            if not self._stop_flag:
+                self.error_occurred.emit(str(e))
+    
+    def stop(self):
+        """Stop processing"""
+        self._stop_flag = True
+        if self.splitter:
+            self.splitter.cancel_processing()
 
 
 class MainWindow(QMainWindow):
@@ -81,6 +96,26 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.load_config()
         self.setup_connections()
+        
+        # Initialize logger for console output capture
+        self.setup_logger()
+    
+    def setup_logger(self):
+        """Setup logger to capture console output"""
+        try:
+            # Set GUI callback for log messages
+            set_global_gui_callback(self.log_message)
+            
+            # Get logger and connect signal
+            logger = get_global_logger()
+            logger.log_message_signal.connect(self.log_message)
+            
+            # Start capturing console output
+            logger.start_capture()
+            
+            self.log_message("✅ Logger inicializado - Capturando logs de consola")
+        except Exception as e:
+            print(f"Error setting up logger: {e}")
     
     def init_ui(self):
         """Initialize user interface"""
@@ -228,6 +263,13 @@ class MainWindow(QMainWindow):
         self.process_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
         self.process_btn.setEnabled(False)
         processing_layout.addWidget(self.process_btn)
+        
+        # Stop button
+        self.stop_btn = QPushButton("Stop Processing")
+        self.stop_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaStop))
+        self.stop_btn.setEnabled(False)
+        self.stop_btn.clicked.connect(self.stop_processing)
+        processing_layout.addWidget(self.stop_btn)
         
         layout.addWidget(processing_group)
         
@@ -404,6 +446,7 @@ class MainWindow(QMainWindow):
         
         # Disable controls
         self.process_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
         self.select_files_btn.setEnabled(False)
         self.clear_files_btn.setEnabled(False)
         
@@ -427,6 +470,22 @@ class MainWindow(QMainWindow):
         self.processing_thread.start()
         
         self.log_message(f"Started processing: {Path(self.video_files[0]).name}")
+    
+    def stop_processing(self):
+        """Stop video processing"""
+        if self.processing_thread and self.processing_thread.isRunning():
+            self.log_message("🛑 Stopping processing...")
+            self.processing_thread.stop()
+            self.processing_thread.wait()  # Wait for thread to finish
+            
+            # Reset UI
+            self.progress_bar.setVisible(False)
+            self.process_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.select_files_btn.setEnabled(True)
+            self.clear_files_btn.setEnabled(True)
+            self.status_bar.showMessage("Processing stopped")
+            self.log_message("✅ Processing stopped by user")
     
     def update_progress(self, value: int):
         """Update progress bar"""
@@ -458,6 +517,7 @@ class MainWindow(QMainWindow):
         """Handle processing completion"""
         self.progress_bar.setVisible(False)
         self.process_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.select_files_btn.setEnabled(True)
         self.clear_files_btn.setEnabled(True)
         
@@ -474,6 +534,7 @@ class MainWindow(QMainWindow):
         """Handle processing error"""
         self.progress_bar.setVisible(False)
         self.process_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.select_files_btn.setEnabled(True)
         self.clear_files_btn.setEnabled(True)
         
@@ -512,9 +573,28 @@ class MainWindow(QMainWindow):
     
     def log_message(self, message: str):
         """Add message to log"""
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.append(f"[{timestamp}] {message}")
+        try:
+            # Check if log_text exists (in case it's called before UI is ready)
+            if hasattr(self, 'log_text') and self.log_text is not None:
+                # Add timestamp if not already present
+                if not message.startswith('['):
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    message = f"[{timestamp}] {message}"
+                
+                self.log_text.append(message)
+                
+                # Auto-scroll to bottom
+                cursor = self.log_text.textCursor()
+                cursor.movePosition(cursor.End)
+                self.log_text.setTextCursor(cursor)
+                
+                # Force GUI update
+                QApplication.processEvents()
+        except Exception as e:
+            # Fallback to print if GUI logging fails
+            print(f"Error in log_message: {e}")
+            print(f"Original message: {message}")
     
     def get_application_style(self) -> str:
         """Get application stylesheet"""

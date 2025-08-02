@@ -121,7 +121,8 @@ ClipForge/
 │   └── url_clip_processor_v8.py # Procesador de clips desde URLs (actual)
 ├── utils/                  # Utilidades
 │   ├── __init__.py
-│   └── file_utils.py       # Utilidades de archivos y carpetas
+│   ├── file_utils.py       # Utilidades de archivos y carpetas
+│   └── logger.py           # Sistema de logs avanzado
 └── assets/                 # Recursos
     ├── clipforge.ico       # Icono original
     └── clipforge_multi.ico # Icono mejorado con múltiples tamaños
@@ -179,6 +180,7 @@ La aplicación sigue el patrón MVC (Model-View-Controller):
 - `URLProcessor`: Validación y obtención de información de URLs
 - `URLClipProcessorV8`: Procesamiento de clips desde URLs (streaming real)
 - `FileUtils`: Utilidades para manejo de archivos
+- `GUILogger`: Sistema de captura y redirección de logs de consola
 - `MainWindow`: Interfaz gráfica principal
 - `URLWindow`: Interfaz para procesamiento de URLs
 - `ProcessingThread`: Procesamiento en segundo plano
@@ -268,12 +270,34 @@ Set-ExecutionPolicy RemoteSigned
 
 ## 📝 Logs
 
-Los logs muestran:
-- Archivos seleccionados
-- Progreso del procesamiento
-- Errores y advertencias
-- Resultados finales
-- Información de URLs procesadas
+### Sistema de Logs Avanzado
+ClipForge incluye un sistema de logs completo que captura automáticamente toda la salida de consola y la muestra en la interfaz gráfica:
+
+#### Características del Sistema de Logs:
+- **Captura automática**: Todos los mensajes de consola se capturan automáticamente
+- **Tiempo real**: Los logs se muestran en tiempo real en la interfaz
+- **Timestamps**: Cada mensaje incluye timestamp automático
+- **Auto-scroll**: Los logs se desplazan automáticamente hacia abajo
+- **Buffer inteligente**: Mantiene los últimos 1000 mensajes en memoria
+- **Doble salida**: Los logs aparecen tanto en consola como en la GUI
+
+#### Información Capturada:
+- **Procesamiento local**: Archivos seleccionados, progreso, errores
+- **Procesamiento URL**: Información de videos, streaming, extracción
+- **Sistema**: Configuración, inicialización, errores del sistema
+- **Progreso**: Actualizaciones de progreso en tiempo real
+- **Errores**: Mensajes de error detallados con contexto
+- **Resultados**: Información final de procesamiento
+
+#### Secciones de Logs:
+- **Ventana Principal**: Logs de procesamiento de videos locales
+- **Ventana URL**: Logs específicos de procesamiento desde URLs
+- **Consola**: Salida tradicional en terminal/consola
+
+#### Comandos de Log:
+- **Limpiar Log**: Botón para limpiar la sección de logs
+- **Auto-scroll**: Desplazamiento automático hacia nuevos mensajes
+- **Preservación**: Los logs se mantienen durante toda la sesión
 
 ## 🔄 Próximas Mejoras
 

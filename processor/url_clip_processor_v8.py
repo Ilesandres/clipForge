@@ -23,6 +23,7 @@ class URLClipProcessorV8:
         self.url_processor = URLProcessor()
         self.progress_callback = progress_callback or (lambda x: None)
         self.temp_dir = None
+        self._stop_flag = False
     
     def process_url_video(self, url: str, output_base_path: Path, 
                          clip_duration: int) -> Dict[str, Any]:
@@ -77,6 +78,11 @@ class URLClipProcessorV8:
             # Extract segments using real streaming
             print("Step 2: Extracting segments using real streaming...")
             for i, clip_info in enumerate(clips):
+                # Check if processing was stopped
+                if self._stop_flag:
+                    print("🛑 Processing stopped by user")
+                    break
+                    
                 try:
                     # Update progress
                     progress = int((i / total_clips) * 100)
@@ -418,4 +424,5 @@ class URLClipProcessorV8:
     def cancel_processing(self):
         """Cancel current processing"""
         print("🛑 Processing cancelled by user")
+        self._stop_flag = True
         self._cleanup_temp_dir() 
