@@ -31,7 +31,7 @@ class URLProcessor:
         'kick': {
             'domains': ['kick.com', 'www.kick.com'],
             'name': 'Kick',
-            'supported': True
+            'supported': False  # Disabled due to aggressive anti-bot measures
         }
     }
     
@@ -44,6 +44,33 @@ class URLProcessor:
             'format': 'best',  # Use best available format
             'socket_timeout': 30,  # 30 second timeout
             'retries': 3,  # Retry failed downloads
+        }
+        
+        # Platform-specific options
+        self.platform_opts = {
+            'kick': {
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Cache-Control': 'max-age=0',
+                },
+                'extractor_args': {
+                    'kick': {
+                        'skip': ['dash', 'live'],  # Skip live streams and DASH
+                    }
+                },
+                'socket_timeout': 60,  # Longer timeout for Kick
+                'retries': 5,  # More retries
+            }
         }
     
     def is_supported_url(self, url: str) -> Dict[str, Any]:
@@ -80,7 +107,38 @@ class URLProcessor:
     def get_video_info(self, url: str) -> Optional[Dict[str, Any]]:
         """Get video information from URL"""
         try:
-            # Use different options for info extraction
+            # Detect platform
+            platform_info = self.is_supported_url(url)
+            platform = platform_info.get('platform', 'unknown')
+            
+            # For Kick, try direct extraction first
+            if platform == 'kick':
+                print("🎯 Using direct Kick extraction method...")
+                try:
+                    from .kick_stream_extractor import KickStreamExtractor
+                    extractor = KickStreamExtractor()
+                    kick_info = extractor.extract_video_info(url)
+                    
+                    if kick_info:
+                        print("✅ Successfully extracted Kick video info directly")
+                        return {
+                            'title': kick_info.get('title', 'Unknown Title'),
+                            'duration': kick_info.get('duration', 0),
+                            'uploader': kick_info.get('uploader', 'Unknown'),
+                            'platform': 'kick',
+                            'url': url,
+                            'thumbnail': kick_info.get('thumbnail'),
+                            'view_count': kick_info.get('view_count', 0),
+                            'upload_date': None,
+                            'description': '',
+                            'formats': [{'url': kick_info.get('stream_url')}] if kick_info.get('stream_url') else []
+                        }
+                    else:
+                        print("⚠️ Direct Kick extraction failed, trying yt-dlp...")
+                except Exception as e:
+                    print(f"⚠️ Direct Kick extraction error: {e}, trying yt-dlp...")
+            
+            # Use platform-specific options
             info_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -88,24 +146,40 @@ class URLProcessor:
                 'format': 'best',  # Use best available format
             }
             
-            with yt_dlp.YoutubeDL(info_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                
-                if not info:
+            # Add platform-specific options
+            if platform in self.platform_opts:
+                info_opts.update(self.platform_opts[platform])
+            
+            print(f"Getting video info for {platform} with custom options...")
+            
+            try:
+                with yt_dlp.YoutubeDL(info_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    
+                    if not info:
+                        return None
+                    
+                    return {
+                        'title': info.get('title', 'Unknown Title'),
+                        'duration': info.get('duration', 0),
+                        'uploader': info.get('uploader', 'Unknown'),
+                        'platform': info.get('extractor', 'unknown'),
+                        'url': url,
+                        'thumbnail': info.get('thumbnail'),
+                        'view_count': info.get('view_count', 0),
+                        'upload_date': info.get('upload_date'),
+                        'description': info.get('description', '')[:200] + '...' if info.get('description') else '',
+                        'formats': self._get_available_formats(info)
+                    }
+                    
+            except Exception as e:
+                error_msg = str(e)
+                if '403' in error_msg and platform == 'kick':
+                    print("⚠️ Kick returned 403 - this video may be restricted or require authentication")
+                    print("💡 Try using a different Kick video URL or check if the video is publicly accessible")
                     return None
-                
-                return {
-                    'title': info.get('title', 'Unknown Title'),
-                    'duration': info.get('duration', 0),
-                    'uploader': info.get('uploader', 'Unknown'),
-                    'platform': info.get('extractor', 'unknown'),
-                    'url': url,
-                    'thumbnail': info.get('thumbnail'),
-                    'view_count': info.get('view_count', 0),
-                    'upload_date': info.get('upload_date'),
-                    'description': info.get('description', '')[:200] + '...' if info.get('description') else '',
-                    'formats': self._get_available_formats(info)
-                }
+                else:
+                    raise e
                 
         except Exception as e:
             print(f"Error getting video info: {e}")
@@ -246,11 +320,18 @@ class URLProcessor:
         platform_info = self.is_supported_url(url)
         
         if not platform_info['supported']:
-            return {
-                'valid': False,
-                'error': f"Plataforma no soportada: {platform_info['platform_name']}. Por el momento solo soportamos YouTube, Twitch y Kick. Esperamos agregar más plataformas en próximas actualizaciones.",
-                'platform': platform_info['platform_name']
-            }
+            if platform_info['platform'] == 'kick':
+                return {
+                    'valid': False,
+                    'error': f"Kick no es soportado debido a sus medidas anti-bot extremadamente estrictas. Por favor usa YouTube o Twitch como alternativas.",
+                    'platform': platform_info['platform_name']
+                }
+            else:
+                return {
+                    'valid': False,
+                    'error': f"Plataforma no soportada: {platform_info['platform_name']}. Por el momento solo soportamos YouTube y Twitch. Esperamos agregar más plataformas en próximas actualizaciones.",
+                    'platform': platform_info['platform_name']
+                }
         
         # Try to get video info
         video_info = self.get_video_info(url)

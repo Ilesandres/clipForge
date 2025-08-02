@@ -19,6 +19,7 @@ from PyQt5.QtGui import QFont, QPixmap, QIcon
 
 from processor.url_clip_processor_v8 import URLClipProcessorV8
 from utils.file_utils import FileUtils
+from utils.logger import get_global_logger, set_global_gui_callback
 
 
 class URLProcessingThread(QThread):
@@ -36,6 +37,7 @@ class URLProcessingThread(QThread):
         self.clip_duration = clip_duration
         self.mode = mode  # 'preview' or 'process'
         self.processor = URLClipProcessorV8(self.progress_updated.emit)
+        self._stop_flag = False
     
     def run(self):
         """Run URL processing"""
@@ -43,7 +45,8 @@ class URLProcessingThread(QThread):
             if self.mode == 'preview':
                 # Get video preview
                 preview = self.processor.get_video_preview(self.url)
-                self.preview_ready.emit(preview)
+                if not self._stop_flag:
+                    self.preview_ready.emit(preview)
             else:
                 # Process video
                 result = self.processor.process_url_video(
@@ -51,9 +54,19 @@ class URLProcessingThread(QThread):
                     self.output_path, 
                     self.clip_duration
                 )
-                self.processing_finished.emit(result)
+                
+                # Check if processing was stopped
+                if not self._stop_flag:
+                    self.processing_finished.emit(result)
         except Exception as e:
-            self.error_occurred.emit(str(e))
+            if not self._stop_flag:
+                self.error_occurred.emit(str(e))
+    
+    def stop(self):
+        """Stop processing"""
+        self._stop_flag = True
+        if self.processor:
+            self.processor.cancel_processing()
 
 
 class URLWindow(QWidget):
@@ -68,6 +81,26 @@ class URLWindow(QWidget):
         self.init_ui()
         self.setup_connections()
         self.load_config()
+        
+        # Initialize logger for console output capture
+        self.setup_logger()
+    
+    def setup_logger(self):
+        """Setup logger to capture console output"""
+        try:
+            # Set GUI callback for log messages
+            set_global_gui_callback(self.log_message)
+            
+            # Get logger and connect signal
+            logger = get_global_logger()
+            logger.log_message_signal.connect(self.log_message)
+            
+            # Start capturing console output
+            logger.start_capture()
+            
+            self.log_message("✅ Logger inicializado - Capturando logs de consola")
+        except Exception as e:
+            print(f"Error setting up logger: {e}")
     
     def init_ui(self):
         """Initialize user interface"""
@@ -160,6 +193,13 @@ class URLWindow(QWidget):
         self.process_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
         self.process_btn.setEnabled(False)
         processing_layout.addWidget(self.process_btn)
+        
+        # Stop button
+        self.stop_btn = QPushButton("🛑 Detener Procesamiento")
+        self.stop_btn.setIcon(self.style().standardIcon(QStyle.SP_MediaStop))
+        self.stop_btn.setEnabled(False)
+        self.stop_btn.clicked.connect(self.stop_processing)
+        processing_layout.addWidget(self.stop_btn)
         
         main_layout.addWidget(processing_group)
         
@@ -342,6 +382,7 @@ class URLWindow(QWidget):
         
         # Disable controls
         self.process_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
         self.preview_btn.setEnabled(False)
         
         # Show progress bar
@@ -364,6 +405,21 @@ class URLWindow(QWidget):
         self.log_message(f"Iniciando procesamiento: {url}")
         self.status_label.setText("Procesando video desde URL...")
     
+    def stop_processing(self):
+        """Stop URL video processing"""
+        if self.processing_thread and self.processing_thread.isRunning():
+            self.log_message("🛑 Deteniendo procesamiento...")
+            self.processing_thread.stop()
+            self.processing_thread.wait()  # Wait for thread to finish
+            
+            # Reset UI
+            self.progress_bar.setVisible(False)
+            self.process_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+            self.preview_btn.setEnabled(True)
+            self.status_label.setText("Procesamiento detenido")
+            self.log_message("✅ Procesamiento detenido por el usuario")
+    
     def update_progress(self, value: int):
         """Update progress bar"""
         try:
@@ -385,6 +441,7 @@ class URLWindow(QWidget):
         """Handle processing completion"""
         self.progress_bar.setVisible(False)
         self.process_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.preview_btn.setEnabled(True)
         
         if result.get('success', False):
@@ -401,6 +458,7 @@ class URLWindow(QWidget):
         """Handle processing error"""
         self.progress_bar.setVisible(False)
         self.process_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
         self.preview_btn.setEnabled(True)
         
         self.log_message(f"❌ Error: {error}")
@@ -430,12 +488,26 @@ class URLWindow(QWidget):
     
     def log_message(self, message: str):
         """Add message to log"""
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.append(f"[{timestamp}] {message}")
-        
-        # Auto-scroll to bottom
-        cursor = self.log_text.textCursor()
-        cursor.movePosition(cursor.End)
-        self.log_text.setTextCursor(cursor)
+        try:
+            # Check if log_text exists (in case it's called before UI is ready)
+            if hasattr(self, 'log_text') and self.log_text is not None:
+                # Add timestamp if not already present
+                if not message.startswith('['):
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    message = f"[{timestamp}] {message}"
+                
+                self.log_text.append(message)
+                
+                # Auto-scroll to bottom
+                cursor = self.log_text.textCursor()
+                cursor.movePosition(cursor.End)
+                self.log_text.setTextCursor(cursor)
+                
+                # Force GUI update
+                QApplication.processEvents()
+        except Exception as e:
+            # Fallback to print if GUI logging fails
+            print(f"Error in log_message: {e}")
+            print(f"Original message: {message}")
         self.log_text.ensureCursorVisible() 
