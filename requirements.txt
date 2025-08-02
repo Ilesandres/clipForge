@@ -3,3 +3,12 @@ moviepy==1.0.3
 Pillow==11.3.0
 pathlib2==2.3.7.post1
 pyinstaller==6.14.2
+yt-dlp>=2023.12.30
+requests>=2.31.0
+# Dependencias adicionales que se usan en el proyecto
+numpy>=1.21.0
+decorator>=4.4.2
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.8
+proglog>=0.1.9
+tqdm>=4.64.0
