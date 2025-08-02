@@ -23,13 +23,31 @@ def main():
     app.setApplicationVersion("1.0.0")
     app.setOrganizationName("ClipForge")
     
-    # Set application icon
-    icon_path = Path(__file__).parent / "assets" / "clipforge.ico"
+    # Set application icon with improved configuration
+    icon_path = Path(__file__).parent / "assets" / "clipforge_multi.ico"
+    if not icon_path.exists():
+        # Fallback to other icons
+        icon_path = Path(__file__).parent / "assets" / "clipforge-16x16.ico"
+        if not icon_path.exists():
+            icon_path = Path(__file__).parent / "assets" / "clipforge.ico"
+    
     if icon_path.exists():
-        app.setWindowIcon(QIcon(str(icon_path)))
-        print(f"Application icon set from: {icon_path}")
+        try:
+            # Create QIcon object
+            icon = QIcon(str(icon_path))
+            
+            # Check if icon is valid
+            if not icon.isNull():
+                # Set application icon
+                app.setWindowIcon(icon)
+                print(f"✅ Application icon set successfully from: {icon_path}")
+                print(f"✅ Icon sizes available: {icon.availableSizes()}")
+            else:
+                print(f"⚠️ Warning: Icon file exists but is invalid: {icon_path}")
+        except Exception as e:
+            print(f"⚠️ Warning: Error setting application icon: {e}")
     else:
-        print(f"Warning: Icon file not found at {icon_path}")
+        print(f"⚠️ Warning: Icon file not found at {icon_path}")
     
     # Set application style
     app.setStyle('Fusion')

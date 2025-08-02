@@ -20,6 +20,7 @@ class VideoSplitter:
         self.progress_callback = progress_callback or (lambda x: None)
         self.current_video_path = None
         self.current_clip = None
+        self._stop_flag = False
     
     def get_video_info(self, video_path: str) -> Optional[Dict[str, Any]]:
         """Get detailed video information"""
@@ -79,6 +80,11 @@ class VideoSplitter:
             print(f"Splitting video into {total_clips} clips...")
             
             for i, clip_info in enumerate(clips):
+                # Check if processing was stopped
+                if self._stop_flag:
+                    print("Processing stopped by user")
+                    break
+                    
                 try:
                     # Generate output filename
                     output_filename = FileUtils.generate_clip_filename(
@@ -187,11 +193,14 @@ class VideoSplitter:
     
     def cancel_processing(self):
         """Cancel current video processing"""
+        print("🛑 Canceling video processing...")
+        self._stop_flag = True
         if self.current_clip:
-            print("Canceling video processing...")
-            # The processing will be canceled in the next iteration
-            # This is a simple implementation - in a real app you'd want
-            # to use threading and proper cancellation mechanisms
+            try:
+                self.current_clip.close()
+            except:
+                pass
+            self.current_clip = None
     
     def get_processing_status(self) -> Dict[str, Any]:
         """Get current processing status"""
