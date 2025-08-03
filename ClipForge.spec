@@ -1,12 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+
+datas = [('config', 'config'), ('gui', 'gui'), ('processor', 'processor'), ('utils', 'utils'), ('assets', 'assets')]
+binaries = []
+hiddenimports = ['PyQt5.sip', 'PyQt5.QtCore', 'PyQt5.QtWidgets', 'PyQt5.QtGui']
+tmp_ret = collect_all('PyQt5')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=[('config', 'config'), ('gui', 'gui'), ('processor', 'processor'), ('utils', 'utils'), ('assets', 'assets')],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

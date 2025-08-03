@@ -28,7 +28,7 @@ def build_executable():
     # Define build parameters
     main_script = "main.py"
     app_name = "ClipForge"
-    icon_path = "assets/clipforge.ico"  # Icon for the application
+    icon_path = "assets/clipforge_multi.ico"  # Icon for the application
     
     # PyInstaller command
     cmd = [
@@ -42,6 +42,12 @@ def build_executable():
         "--add-data", "gui;gui",        # Include gui directory
         "--add-data", "processor;processor",  # Include processor directory
         "--add-data", "utils;utils",    # Include utils directory
+        "--add-data", "assets;assets",  # Include assets directory
+        "--hidden-import=PyQt5.sip",    # Ensure PyQt5.sip is included
+        "--hidden-import=PyQt5.QtCore", # Ensure PyQt5.QtCore is included
+        "--hidden-import=PyQt5.QtWidgets", # Ensure PyQt5.QtWidgets is included
+        "--hidden-import=PyQt5.QtGui",  # Ensure PyQt5.QtGui is included
+        "--collect-all=PyQt5",          # Collect all PyQt5 modules
         main_script
     ]
     

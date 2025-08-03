@@ -90,7 +90,7 @@ python build_exe.py
 
 ### Opción 3: Comando Manual
 ```bash
-pyinstaller --onefile --windowed --name ClipForge --icon=assets/clipforge_multi.ico --clean --noconfirm --add-data "config;config" --add-data "gui;gui" --add-data "processor;processor" --add-data "utils;utils" --add-data "assets;assets" main.py
+pyinstaller --onefile --windowed --name ClipForge --icon=assets/clipforge_multi.ico --clean --noconfirm --add-data "config;config" --add-data "gui;gui" --add-data "processor;processor" --add-data "utils;utils" --add-data "assets;assets" --hidden-import=PyQt5.sip --hidden-import=PyQt5.QtCore --hidden-import=PyQt5.QtWidgets --hidden-import=PyQt5.QtGui --collect-all=PyQt5 main.py
 ```
 
 ### Características del Ejecutable

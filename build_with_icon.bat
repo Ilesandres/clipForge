@@ -5,14 +5,14 @@ echo ========================================
 echo.
 
 REM Check if icon exists
-if not exist "assets\clipforge.ico" (
-    echo ERROR: Icon file not found: assets\clipforge.ico
+if not exist "assets\clipforge_multi.ico" (
+    echo ERROR: Icon file not found: assets\clipforge_multi.ico
     echo Please ensure the icon file exists.
     pause
     exit /b 1
 )
 
-echo Icon found: assets\clipforge.ico
+echo Icon found: assets\clipforge_multi.ico
 echo.
 
 REM Check if PyInstaller is installed
@@ -27,7 +27,7 @@ echo This may take several minutes...
 echo.
 
 REM Build the executable with icon
-pyinstaller --onefile --windowed --name ClipForge --icon=assets/clipforge.ico --clean --noconfirm --add-data "config;config" --add-data "gui;gui" --add-data "processor;processor" --add-data "utils;utils" main.py
+pyinstaller --onefile --windowed --name ClipForge --icon=assets/clipforge_multi.ico --clean --noconfirm --add-data "config;config" --add-data "gui;gui" --add-data "processor;processor" --add-data "utils;utils" --add-data "assets;assets" --hidden-import=PyQt5.sip --hidden-import=PyQt5.QtCore --hidden-import=PyQt5.QtWidgets --hidden-import=PyQt5.QtGui --collect-all=PyQt5 main.py
 
 if errorlevel 1 (
     echo.
@@ -42,7 +42,7 @@ echo Build completed successfully!
 echo ========================================
 echo.
 echo Executable created: dist\ClipForge.exe
-echo Icon included: assets\clipforge.ico
+echo Icon included: assets\clipforge_multi.ico
 echo.
 echo To run ClipForge:
 echo 1. Double-click dist\ClipForge.exe
