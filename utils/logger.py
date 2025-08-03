@@ -33,9 +33,14 @@ class GUILogger(QObject):
         
     def write(self, text: str):
         """Write text to both console and GUI"""
-        # Write to original stdout first
-        self.original_stdout.write(text)
-        self.original_stdout.flush()
+        # Write to original stdout first (with safety check)
+        if self.original_stdout is not None:
+            try:
+                self.original_stdout.write(text)
+                self.original_stdout.flush()
+            except (AttributeError, OSError):
+                # Fallback if stdout is not available
+                pass
         
         # Only process non-empty lines
         if text.strip():
@@ -61,7 +66,11 @@ class GUILogger(QObject):
     
     def flush(self):
         """Flush the output"""
-        self.original_stdout.flush()
+        if self.original_stdout is not None:
+            try:
+                self.original_stdout.flush()
+            except (AttributeError, OSError):
+                pass
     
     def get_log_buffer(self) -> list:
         """Get current log buffer"""

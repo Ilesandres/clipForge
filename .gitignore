@@ -5,3 +5,5 @@ gui/__pycache__/
 processor/__pycache__/
 utils/__pycache__/
 __pycache__/
+dist/
+*.exe
